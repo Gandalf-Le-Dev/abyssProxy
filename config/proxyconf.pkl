@@ -1,0 +1,12 @@
+amends "../pkl/ProxyConf.pkl"
+
+http = new Http {
+    server {
+        ["localhost:443"] {
+            location {
+                proxyPass = "localhost:8081"
+                scheme = "https"
+            }
+        }
+    }
+}

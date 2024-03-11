@@ -1,0 +1,20 @@
+@go.Package { name = "github.com/Gandalf-Le-Dev/personal-lab/abyssProxy/gen/conf" }
+module proxyconf
+
+import "package://pkg.pkl-lang.org/pkl-go/pkl.golang@0.5.3#/go.pkl"
+
+class Http {
+    server: Mapping<String, Server>
+}
+
+class Server {
+    serverPort: Int(isBetween(0, 1023)) = 80
+    location: Location
+}
+
+class Location {
+    proxyPass: String = "localhost:8080"
+    scheme: String = "http"
+}
+
+http: Http

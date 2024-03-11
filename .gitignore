@@ -1,0 +1,17 @@
+/bin
+/tmp
+
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+# vendor/
+go.work
+
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
