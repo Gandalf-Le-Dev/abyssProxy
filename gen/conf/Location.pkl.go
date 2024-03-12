@@ -3,6 +3,4 @@ package conf
 
 type Location struct {
 	ProxyPass string `pkl:"proxyPass"`
-
-	Scheme string `pkl:"scheme"`
 }
