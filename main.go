@@ -12,18 +12,13 @@ import (
 )
 
 var cfg *conf.Proxyconf
+var scheme = "http"
 
 func init() {
 	var err error
 	cfg, err = conf.LoadFromPath(context.Background(), "./config/proxyconf.pkl")
 	if err != nil {
 		panic(err)
-	}
-
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-		InsecureSkipVerify:       true,
-		MinVersion:               tls.VersionTLS13,
-		PreferServerCipherSuites: true,
 	}
 
 	http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
@@ -38,7 +33,7 @@ func main() {
 			}
 
 			req.URL.Host = target.Location.ProxyPass
-			req.URL.Scheme = target.Location.Scheme
+			req.URL.Scheme = scheme
 			req.RequestURI = ""
 		},
 		Transport: http.DefaultTransport,
@@ -63,12 +58,14 @@ func main() {
 		Addr:    ":443",
 		Handler: reverseProxy,
 		TLSConfig: &tls.Config{
-			MinVersion: tls.VersionTLS13,
+			MinVersion:   tls.VersionTLS13,
 			Certificates: []tls.Certificate{certificate},
-			NextProtos:  []string{"h2", "http/1.1"},
+			NextProtos:   []string{"h2", "http/1.1"},
 		},
 	}
 
+	// Start HTTPS server
+	log.Printf("HTTPS server started on %s\n", server.Addr)
 	ln, err := tls.Listen("tcp", server.Addr, server.TLSConfig)
 	if err != nil {
 		log.Fatal(err)
