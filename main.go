@@ -21,7 +21,10 @@ func init() {
 		panic(err)
 	}
 
-	http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
+	err = http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
