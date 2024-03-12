@@ -15,7 +15,7 @@ fi
 
 package_name=$(basename "$package")
 
-platforms=("linux/amd64")
+platforms=("linux/amd64" "darwin/arm64")
 
 for platform in "${platforms[@]}"
 do
