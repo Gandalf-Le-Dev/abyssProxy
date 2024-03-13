@@ -1,0 +1,57 @@
+version: '3'
+
+vars:
+  PWD:
+    sh: pwd
+  NAME: 
+    sh: 'basename {{.PWD}}'
+  OUTPUT_DIR: '{{.PWD}}/bin/build'
+  PACKAGES: 
+    sh: 'go list ./...'
+
+tasks:
+  init:
+    vars:
+      MODULE: '{{default "{{.NAME}}" .MODULE}}'
+    cmds:
+      - go mod init {{.MODULE}}
+      - go install github.com/cosmtrek/air@latest
+
+  vet:
+    cmds:
+      - go vet {{.PACKAGES}}
+
+  test:
+    cmds:
+      - go test -race -cover {{.PACKAGES}}
+
+  build:
+    cmds:
+      - go build -o {{.OUTPUT_DIR}}/{{.NAME}} -v
+
+  release:
+    cmds:
+      - 'bash go-executable-build.bash {{.NAME}} {{.OUTPUT_DIR}}'
+
+  docker-build:
+    cmds:
+      - GOPROXY=direct docker buildx build -t {{.NAME}} .
+
+  docker-run:
+    cmds:
+      - docker run -it --rm -p 8080:8080 {{.NAME}}
+
+  start:
+    cmds:
+      - air
+
+  pkl:
+    cmds:
+      - pkl-gen-go pkl/proxyconf.pkl
+
+  pkl-eval:
+    desc: 'Evaluate the pkl file. Usage: task pkl-eval PKL=path/to/pkl/file.pkl'
+    vars:
+      PKL: '{{default "config/proxyconf.pkl" .PKL}}'
+    cmds:
+      - pkl eval {{.PKL}}
