@@ -1,0 +1,14 @@
+{
+    "servers": {
+        "localhost": {
+            "location": {
+                "proxyPass": "localhost:8081",
+                "requiredAuth": true,
+                "auth": {
+                    "username": "hello",
+                    "password": "world"
+                }
+            }
+        }
+    }
+}

@@ -52,6 +52,6 @@ tasks:
   pkl-eval:
     desc: 'Evaluate the pkl file. Usage: task pkl-eval PKL=path/to/pkl/file.pkl'
     vars:
-      PKL: '{{default "config/proxyconf.pkl" .PKL}}'
+      PKL: '{{default "pkl/proxyconf.pkl" .PKL}}'
     cmds:
       - pkl eval {{.PKL}}

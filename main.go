@@ -1,47 +1,56 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 
-	"github.com/Gandalf-Le-Dev/personal-lab/abyssProxy/gen/conf"
-	"golang.org/x/net/http2"
+	"github.com/Gandalf-Le-Dev/personal-lab/abyssProxy/config"
 )
 
-var cfg *conf.Proxyconf
-var scheme = "http"
+var cfg *config.HTTPConfig
 
 func init() {
-	var err error
-	cfg, err = conf.LoadFromPath(context.Background(), "./config/proxyconf.pkl")
+	// Load configuration from file
+	cfg = &config.HTTPConfig{}
+	err := config.LoadConfig("./config/proxy.conf.json", cfg)
 	if err != nil {
-		panic(err)
-	}
-
-	err = http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
-	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
 func main() {
-	reverseProxy := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			target := cfg.Http.Server[req.Host]
-			if target == nil {
-				target = cfg.Http.Server["localhost:443"]
-			}
+	// reverseProxy := &httputil.ReverseProxy{
+	// 	Director: func(req *http.Request) {
+	// 		target := cfg.Servers[req.Host]
+	// 		if target.Location.ProxyPass == "" {
+	// 			log.Printf("No proxy pass found for %s\n", req.Host)
+	// 			return
+	// 		}
 
-			req.URL.Host = target.Location.ProxyPass
-			req.URL.Scheme = scheme
-			req.RequestURI = ""
-		},
-		Transport: http.DefaultTransport,
-		ErrorLog:  log.New(log.Writer(), "reverse-proxy: ", log.LstdFlags),
-	}
+	// 		if target.Location.RequiredAuth {
+	// 			//TODO: Implement authentication logic here
+	// 		}
+
+	// 		println(target.Location.RequiredAuth)
+
+	// 		req.URL.Host = target.Location.ProxyPass
+
+	// 		if target.Location.Scheme != "" {
+	// 			req.URL.Scheme = target.Location.Scheme
+	// 		} else {
+	// 			req.URL.Scheme = "http"
+	// 		}
+
+	// 		req.RequestURI = ""
+
+	// 	},
+	// 	Transport: http.DefaultTransport,
+	// 	ErrorLog:  log.New(log.Writer(), "reverse-proxy: ", log.LstdFlags),
+	// }
 
 	// Redirect HTTP to HTTPS
 	go func() {
@@ -58,14 +67,59 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:    ":443",
-		Handler: reverseProxy,
+		Addr: ":443",
 		TLSConfig: &tls.Config{
 			MinVersion:   tls.VersionTLS13,
 			Certificates: []tls.Certificate{certificate},
 			NextProtos:   []string{"h2", "http/1.1"},
 		},
 	}
+
+	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reverseProxy := &httputil.ReverseProxy{
+			Director: func(req *http.Request) {
+				target := cfg.Servers[req.Host]
+				if target.Location.ProxyPass == "" {
+					log.Printf("No proxy pass found for %s\n", req.Host)
+					return
+				}
+
+				if target.Location.RequiredAuth {
+					auth := req.Header.Get("Authorization")
+					username, password, ok := parseBasicAuth(auth)
+					// Fetch credentials from configuration or a secure source
+					correctUsername := target.Location.Auth.Username
+					correctPassword := target.Location.Auth.Password
+
+					if !ok || username != correctUsername || password != correctPassword {
+						// Return hello world written in html
+						// w.Header().Set("Content-Type", "text/html; charset=utf-8")
+						// w.WriteHeader(http.StatusUnauthorized)
+						// w.Write([]byte("<h1>Hello World</h1>"))
+
+						w.Header().Set("WWW-Authenticate", "Basic realm=\"Restricted\"")
+						w.WriteHeader(http.StatusUnauthorized)
+						http.Error(w, "Unauthorized", http.StatusUnauthorized)
+						return // Stop processing the request
+					}
+				}
+
+				if target.Location.Scheme == "" {
+					req.URL.Scheme = "http"
+				} else {
+					req.URL.Scheme = target.Location.Scheme
+				}
+
+				req.URL.Host = target.Location.ProxyPass
+				req.RequestURI = ""
+
+			},
+			Transport: http.DefaultTransport,
+			ErrorLog:  log.New(log.Writer(), "reverse-proxy: ", log.LstdFlags),
+		}
+
+		reverseProxy.ServeHTTP(w, r)
+	})
 
 	// Start HTTPS server
 	log.Printf("HTTPS server started on %s\n", server.Addr)
@@ -75,4 +129,17 @@ func main() {
 	}
 
 	log.Fatal(server.Serve(ln))
+}
+
+func parseBasicAuth(auth string) (username, password string, ok bool) {
+	if strings.HasPrefix(auth, "Basic ") {
+		payload, err := base64.StdEncoding.DecodeString(auth[6:])
+		if err == nil {
+			pair := strings.SplitN(string(payload), ":", 2)
+			if len(pair) == 2 {
+				return pair[0], pair[1], true
+			}
+		}
+	}
+	return
 }
